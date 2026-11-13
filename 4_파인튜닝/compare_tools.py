@@ -20,7 +20,7 @@ from openai import OpenAI
 
 ORIGINAL = '원본 Qwen2.5-3B'
 MINE = '내가 학습한 모델'
-GPT = 'gpt-4.1-mini'
+GPT = 'gpt-6-luna'
 COLORS = {ORIGINAL: '#9aa5b1', MINE: '#1f8a70', GPT: '#2563a8'}
 RESULTS = Path('results')          # 실행 기록 폴더 (GitHub에 올리지 않아요)
 
@@ -32,18 +32,33 @@ def connect(my_model, openai_key=None, ollama_url='http://localhost:11434/v1'):
     cloud = OpenAI(api_key=openai_key) if openai_key else None
     return {ORIGINAL: (local, 'qwen2.5:3b'),
             MINE:     (local, my_model),
-            GPT:      (cloud, 'gpt-4.1-mini')}
+            GPT: (cloud, GPT)}
 
 
 # ── 2. 묻기 ─────────────────────────────────────────────
+
 def _ask(client, model, instruction, text):
     try:
-        r = client.chat.completions.create(
-            model=model, temperature=0,
-            messages=[{'role': 'user', 'content': instruction + '\n\n' + text}])
-        return r.choices[0].message.content.strip()
+        params = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": instruction + "\n\n" + text
+                }
+            ]
+        }
+
+        # Ollama 모델에만 temperature=0 적용
+        if model != GPT:
+            params["temperature"] = 0
+
+        r = client.chat.completions.create(**params)
+        return (r.choices[0].message.content or "").strip()
+
     except Exception as e:
-        return f'(실패: {type(e).__name__})'
+        return f"(실패: {type(e).__name__}: {e})"
+
 
 
 def ask_models(models, df, name):
